@@ -1,0 +1,217 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+The Behavioral Risk Factor Surveillance System (BRFSS) is a United States health survey that looks at behavioral risk factors. It is run by Centers for Disease Control and Prevention (CDC) and conducted by the individual state health departments. This survey is administered by telephone and is the world's largest such survey. 
+
+In the BRFSS, we notice that there are in access of 490,000 people who were interviewed. The logical first step would be to check whether any bias may have occured. 
+
+Due to the large amount of data collected and that too from varying geographical regions, genders, age groups this sample clearly doesn't suffer from Convenience Sampling Bias. As the data is collected from a large sample and is likely representative of the whole population and not just a fraction of it, it doesn't suffer from Non Response Bias either. 
+
+By observing the data we can see that Stratified Sampling was used, hence we can conclude that the sample is infact random although there is no random assignment, i.e, participates were not randomly assigned to sleep for a certain duration or exercise a certain number of days, etc. Hence, this is an Observational Study and not an Experimental Design. So we can say that the conclusions drawn from this can be generalized to the population at large but the relationship defined may only be associative and no causality can be inferred.
+
+In this study data is collected by asking participates subjective questions such as how would you rate your general health or by asking participates to recall information like how many of the last 30 days active or healthy. This data might not be completely reliable and there may also be confounding factors that affect the answers. 
+
+## Part 2: Research questions
+
+Research quesion 1: For the general population in the US, is there a relation between the amount of sleep and the individual's general health? Is there an association between general health and the frequency of feeling restless in the past 30 days?
+
+It would be interesting to know if the sentiment of feeling well-rested or restless is linked in any way with the general health of a person. And whether the general health also impacts the sleep pattern.
+
+Variables used : genhlth, sleptim,misrstls 
+
+Research quesion 2: For the general population in the US, is there a relation between physical activity and the income level? 
+
+It might be possible that higher income or employment statua may lead to less time for physical activity.Or just having a good and fullfilled work life might lead to higher energy levels and more activity.Let's see if we can see relation one way or the other.
+
+Variables used : exerany2, income1, employ2
+
+Research quesion 3: For the general population in the US, is there an association between prediabetes condition and BMI for both males and females?
+
+An association between prediabetes and BMI might provide us with ways to better understand this growingly common and dangerous disease.
+
+Variables used : prediab1,bmi, sex
+
+Research quesion 4: For the general population in the US, is there an association between BMI and the total minutes of physical activity per week for both males and females?
+
+As in the previous question, an actual association between BMI and physical activity might might help us understand the disease better.
+
+Variables used : pa1min_ ,bmi, sex
+
+Research question 5: For the general population in the US, is there relation between sugar drink intake and weight.
+
+The intake of the amount of sugar has to impact the weight of an individual and hence finding a pattern using the data might be useful in spreading awareness about the dangers and negative impacts of sugar.
+
+Variables used : sugar_amount, sugar_year, ht_inches, wt_lbs
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+Research quesion 1:
+
+```{r}
+#we start by removing the outliers from the data
+delsleepoutlier <- filter(brfss2013, sleptim1 < 100)
+
+#create a data frame for each health category
+hlthSleepCat <- delsleepoutlier %>% group_by(genhlth) %>% summarise(m_sleep = mean(sleptim1))
+
+hlthSleepCat
+
+ggplot(hlthSleepCat, aes(genhlth, m_sleep)) +
+    geom_point(aes(genhlth, m_sleep)) +
+    labs(title="Average hours of sleep for each health category",
+         x="General health rating", y="Average hours of sleep")
+```
+
+Looking at this graph, there does seem to be a direct relation between number of hours a person sleeps and their general health. The is almost linear, showing a direct relation. The healthier the person seems to be the longer they seem and vice-versa. We should also keep in mind that we can not infere a causal relationship using an observational study and this merely suggests that there may be correlation.
+
+Now examining the second part. The association of general health and the frequency of feeling restless.
+
+```{r}
+#filtering on basis on restlessness and 
+rest_genhlth <- brfss2013 %>% filter(misrstls != "NA") %>% mutate(gen_hlth = ifelse(genhlth == "Poor", "Poor", "Good")) %>% filter(gen_hlth != "NA")
+
+#plotting to visualize relationship
+ggplot(rest_genhlth, aes(x = misrstls, fill = gen_hlth)) + geom_bar(position = "fill") + scale_fill_discrete(name = "General Health") + xlab("Frequency of restless days") + ylab("Proportion")
+
+#for poor health
+rest_genhlth %>% group_by(misrstls) %>% summarise(prop_poor_hlth = sum(gen_hlth == "Poor") / n())
+```
+
+We can clearly see that the proportion of people feeling poor is greater with higher frequency of restless days. Hence, it is likely that they have an association relationship. Restlessness does tend be proportionate to the general health of individuals. Though no causal inference can be made, this is still an interesting observation. 
+
+
+Research quesion 2:
+
+```{r}
+# Remove data with NA values
+phyact_delete.na <- filter(brfss2013, !is.na(exerany2), !is.na(income2), !is.na(employ1))
+
+# Find porportion that does any exercise and group them by income.
+phyact_income <- phyact_delete.na %>% group_by(income2) %>% summarise(prop_exer = sum(exerany2 == "Yes") / n())
+
+# Display calculations 
+phyact_income
+
+# Plot the proportion with income levels
+levels(phyact_income$income2) <- gsub(" ", "\n", levels(phyact_income$income2))
+ggplot(phyact_income, aes(income2, prop_exer)) +
+    geom_point(aes(income2, prop_exer)) +
+    labs(title="Proportion of people who exercise vs. Income Level", x="Income Levels", y="Proportion of people who exercise")
+
+```
+We can clearly observe from the graph that the proportion of individuals who exercise increase with the increase in income levels. We can't conclusively say that exercise levels are dependent on a person's income level, but some sort of a relationship can be seen with the two factors. It makes us wonder what leads people to make the decison to exercise, do happier and more staisfied people exercise more? Or do they have to exercise to keep up with the wirk pressures. 
+
+Another interesting statistic may be to look at the exercise rate in relation to the employement status of the individuals. 
+
+```{r}
+phyact_employ <- phyact_delete.na %>% group_by(employ1) %>% summarise(prop_exer = sum(exerany2 == "Yes") / n())
+levels(phyact_employ$employ1) <- gsub(" ", "\n", levels(phyact_employ$employ1))
+ggplot(phyact_employ, aes(employ1, prop_exer)) +
+    geom_point(aes(employ1, prop_exer)) +
+    labs(title="Proportion of people who exercise vs Employment Status",
+         x="Employment Status", y="Proportion who exercise") 
+
+```
+We can observe that a student in the one who exercises the most and people who are unable to work or out of work are the ones who exercise the least. Hence, we might be inclined to believe that depression or an unfullfilled life can tend to cause people to not exercise. And maybe age can also play a role in whether people exercise or not. Students tend to be younger than others and this maye another influencing factor. The younger generation is more health focussed and this may be affecting the result. 
+
+Research quesion 3:
+
+We divide the group into female and male and then on the prediabetic condition and then compare the BMIs.
+
+```{r}
+prediab_bmi <- brfss2013 %>% filter(prediab1 != "NA") %>% filter(X_bmi5 != "NA") %>% mutate(bmi = X_bmi5 / 100)
+ggplot(prediab_bmi, aes(x = prediab1, y = bmi)) + geom_boxplot() + facet_wrap(~sex) + xlab("Prediabetes condition") + ylab("BMI")
+prediab_bmi %>% group_by(sex, prediab1) %>% summarise(median_bmi = median(bmi), iqr_bmi = IQR(bmi))
+```
+
+From the boxplots as well as the calculated statistics, we can observe that a person with prediabetes does show a higher median BMI as well as the IQR. Although this doesn't prove anything, it does give us an insight. The BMI of a diabetic is likely to be higher compared to a non diabetic. It is an interesting observation to make. 
+
+The next question will look into the BMI relation with physical activity and give futher insights.
+
+
+Research quesion 4:
+
+```{r}
+#filter on physical activity with BMI
+pa_bmi <- brfss2013 %>% filter(pa1min_ != "NA") %>% filter(X_bmi5 != "NA") %>% mutate(bmi = X_bmi5 / 100)
+ #plot to see relationship
+ggplot(pa_bmi, aes(x = bmi, y = log(pa1min_ + 1), colour = sex)) + geom_point(shape = 19, alpha = 1/4) + geom_smooth(method = lm, se = FALSE) + scale_colour_discrete(name = "Sex") + xlab("BMI") + ylab("Minutes of physical activity per week (Log)")
+#summarize for a clearer observation
+pa_bmi %>% group_by(sex) %>% summarise(corr_bmi_phys_activity = cor(bmi, pa1min_))
+```
+It can be observed that there does seem to a relation, although not a very significant one. People wh have a higher BMI do perform lesser physical activity than those whose BMI is lower. But we can't say if this merely due to random chance or an actual trend in the data.
+
+
+Research quesion 5:
+
+```{r}
+# Remove NA data
+sugar <- filter(brfss2013, !is.na(weight2), !is.na(height3), !is.na(ssbsugar), !is.na(ssbfrut2), weight2 != "")
+# filtering sugar intake
+sugar <- select(sugar, weight2, height3, ssbsugar, ssbfrut2)
+# Convert to all inches, ht_inches and make column of height as string
+sugar <- mutate(sugar, ht_string = as.character(height3))
+# Convert to numeric.
+sugar <- mutate(sugar, ft = as.numeric(substring(ht_string, 1, 1)))
+sugar <- mutate(sugar, inches = as.numeric(substring(ht_string, 2, 4)))
+# now find total ht in inches
+sugar <- mutate(sugar, ht_inches = ifelse(ft != 9, 12*ft + inches, round(0.393701*inches, digits = 0)))
+#Convert kg to lbs.
+sugar <- mutate(sugar, wt_char = as.character(weight2))
+sugar <- mutate(sugar, wt_lbs =  ifelse( nchar(wt_char) != 4, as.numeric(wt_char), round((as.numeric(wt_char) - 9000)*2.20462, digits = 0)))
+# Remove NA
+sugar <- filter(sugar, !is.na(wt_lbs))
+sugar <- mutate(sugar, bmi = round(703*wt_lbs/(ht_inches*ht_inches), digits = 0))
+sugar <- select(sugar, bmi, ssbsugar, ssbfrut2)
+#Now convert the amount of sugar drinks to same period - 1 year.
+sugar <- mutate(sugar, ssbsugar_char = as.character(ssbsugar))
+sugar <- mutate(sugar, sugar_period = substring(ssbsugar_char, 1, 1))
+sugar <- mutate(sugar, sugar_amount = ifelse(sugar_period == "0", 0, as.numeric(substring(ssbsugar_char, 2, 3))))
+sugar <- mutate(sugar, soda_year = ifelse(sugar_amount == 0, 0, ifelse(sugar_period == "1", 365*sugar_amount, ifelse(sugar_period == "2", 52*sugar_amount, 12*sugar_amount))))
+sugar <- mutate(sugar, ssbfrut2_char = as.character(ssbfrut2))
+sugar <- mutate(sugar, frut2_period = substring(ssbfrut2_char, 1, 1))
+sugar <- mutate(sugar, frut2_amount = ifelse(frut2_period == "0", 0, as.numeric(substring(ssbfrut2_char, 2, 3))))
+sugar <- mutate(sugar, frut2_year = ifelse(frut2_amount == 0, 0, ifelse(frut2_period == "1", 365*frut2_amount, ifelse(frut2_period == "2", 52*frut2_amount, 12*frut2_amount))))
+#filter only what is needed
+sugar <- select(sugar, bmi, soda_year, frut2_year)
+#plot to visualize relationship
+ggplot(sugar, aes(soda_year, bmi)) +
+    geom_point(aes(soda_year, bmi)) +
+    labs(title="BMI vs No. of sodas consumed per year",
+         x="No. of sodas consumed per year", y="BMI")
+
+
+```
+
+The concentration of people who consume soda and have high BMIs is more than the ones who consume sodas and have a lower BMI.Hence the relationship doesn't seem to be both ways. There doesn't seem to be any conclusive proof regarding a relationship between soda intake and BMIs. There are a lot of people who don't consume any soda and still have a higher BMI. This may be due to the fact that many overweight people cut back on suagry drinks but don't necessarliy observe the change in their BMIs. 
+
+
+In conclusion, we were able to observe a lot of things regarding this data. Research questions 1 - 3 do tend to point to a trend in the data whereas questions 4 and 5 need further investigation to actually provide conclusive results.
